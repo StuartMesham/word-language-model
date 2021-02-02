@@ -320,7 +320,7 @@ if not os.path.exists(args.csv):
 
 with open(args.csv, 'a') as f:
     f.write(args.train_set_path + "," + args.bpe_vocab_size + "," + args.n_gram_order + "," + str(last_epoch) + "," + str(args.nlayers) + "," + str(args.emsize) + "," + str(
-        args.nhid) + "," + str(args.lr) + "," + str(args.dropout) + "," + str(args.batch_size) + "," + str(val_bpc) + "," + str(test_bpc))
+        args.nhid) + "," + str(args.lr) + "," + str(args.dropout) + "," + str(args.batch_size) + "," + str(val_bpc) + "," + str(test_bpc) + '\n')
 
 if len(args.onnx_export) > 0:
     # Export the model in ONNX format.
