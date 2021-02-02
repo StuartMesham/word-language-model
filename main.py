@@ -304,13 +304,13 @@ with open(args.save, 'rb') as f:
 
 # Run on val data
 val_loss = evaluate(val_data)
-val_bpc = args.val_tokens / args.val_characters * val_loss
+val_bpc = (args.val_tokens / args.val_characters) * (val_loss / math.log(2))
 
 # Run on test data.
 test_loss = evaluate(test_data)
-test_bpc = args.test_tokens / args.test_characters * test_loss
+test_bpc = (args.test_tokens / args.test_characters) * (test_loss / math.log(2))
 print('=' * 89)
-print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
+print('| End of training | test loss {:5.2f} | test bpc {:8.2f}'.format(
     test_loss, test_bpc))
 print('=' * 89)
 
