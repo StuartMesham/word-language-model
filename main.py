@@ -26,12 +26,12 @@ parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
 parser.add_argument('--dropout', type=float, default=0.3,
                     help='dropout applied to layers (0 = no dropout)')
-parser.add_argument('--not-tied', action='store_true', 
+parser.add_argument('--not-tied', action='store_true',
                     help='do not tie the word embedding and softmax weights')
 
 parser.add_argument('--optim', type=str, default='adamw',
                     help='adamw|sgd')
-parser.add_argument('--lr', type=float, default=1e-3, 
+parser.add_argument('--lr', type=float, default=1e-3,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
@@ -60,6 +60,18 @@ parser.add_argument('--onnx-export', type=str, default='',
 parser.add_argument('--dry-run', action='store_true',
                     help='verify the code and the model')
 
+parser.add_argument('--csv', type=str, default='results.csv',
+                    help='location to write results/logging csv')
+
+parser.add_argument('--vocab_size', default=5000, help='size of vocab ONLY IF using bpe', type=int)
+parser.add_argument('--use_bpe', default=True, help='use huggingface byte level bpe tokenizer')
+
+parser.add_argument('--val_tokens', type=int)
+parser.add_argument('--val_characters', type=int)
+parser.add_argument('--test_tokens', type=int)
+parser.add_argument('--test_characters', type=int)
+parser.add_argument('--train_set_path', type=str)
+
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -76,6 +88,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 
 corpus = data.Corpus(args.data)
 pad_id = corpus.dictionary.word2idx['<eos>']
+
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -98,6 +111,7 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     return data.to(device)
 
+
 eval_batch_size = 10
 
 train_data = batchify(corpus.train, args.batch_size)
@@ -110,13 +124,16 @@ test_data = batchify(corpus.test, eval_batch_size)
 
 ntokens = len(corpus.dictionary)
 if args.model == 'FeedForward':
-    model = model.FeedForwardModel(args.norder, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, not args.not_tied).to(device)
+    model = model.FeedForwardModel(args.norder, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout,
+                                   not args.not_tied).to(device)
 elif args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.norder, args.nhid, args.nlayers, args.dropout).to(device)
 else:
-    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, not args.not_tied).to(device)
+    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout,
+                           not args.not_tied).to(device)
 
 criterion = nn.NLLLoss()
+
 
 ###############################################################################
 # Training code
@@ -143,11 +160,11 @@ def repackage_hidden(h):
 
 def get_batch(source, i, pad_start=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    data = source[i:i+seq_len]  # not predicting the first token in batch
-    if pad_start and args.norder > 1: 
-        padding = torch.ones(args.norder-1, source.size()[1], dtype=torch.long).to(device)*pad_id
+    data = source[i:i + seq_len]  # not predicting the first token in batch
+    if pad_start and args.norder > 1:
+        padding = torch.ones(args.norder - 1, source.size()[1], dtype=torch.long).to(device) * pad_id
         data = torch.cat((padding, data), dim=0)
-    target = source[i+1:i+1+seq_len].view(-1)
+    target = source[i + 1:i + 1 + seq_len].view(-1)
     return data, target
 
 
@@ -209,9 +226,9 @@ def train():
             cur_loss = total_loss / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                    'loss {:5.2f} | ppl {:8.2f}'.format(
+                  'loss {:5.2f} | ppl {:8.2f}'.format(
                 epoch, batch, len(train_data) // args.bptt, lr,
-                elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+                              elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
         if args.dry_run:
@@ -239,15 +256,17 @@ best_val_loss = None
 previous_epoch_improved = True
 
 # At any point you can hit Ctrl + C to break out of training early.
+last_epoch = 0
 try:
-    for epoch in range(1, args.epochs+1):
+    for epoch in range(1, args.epochs + 1):
+        last_epoch = epoch
         epoch_start_time = time.time()
         train()
         val_loss = evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(val_loss)))
+              'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
+                                         val_loss, math.exp(val_loss)))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
@@ -259,7 +278,7 @@ try:
                 # Anneal the learning rate if no improvement has been seen in the validation dataset.
                 lr /= args.lr_decay_rate
                 print("Decay LR to %.6f" % lr)
-                previous_epoch_improved = True # reset check
+                previous_epoch_improved = True  # reset check
             else:
                 previous_epoch_improved = False
 
@@ -281,12 +300,25 @@ with open(args.save, 'rb') as f:
     if args.model in ['RNN_TANH', 'RNN_RELU', 'LSTM', 'GRU']:
         model.rnn.flatten_parameters()
 
+# Run on val data
+val_loss = evaluate(val_data)
+val_bpc = args.val_tokens / args.val_characters * val_loss
+
 # Run on test data.
 test_loss = evaluate(test_data)
+test_bpc = args.test_tokens / args.test_characters * test_loss
 print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(test_loss)))
+    test_loss, test_bpc))
 print('=' * 89)
+
+if not os.path.exists(args.csv):
+    with open(args.csv, 'w') as f:
+        f.write('train set path, epochs, nlayers, emsize, nhid, lr, dropout, batch size, val bpc, test bpc\n')
+
+with open(args.csv, 'a') as f:
+    f.write(args.train_set_path + "," + str(last_epoch) + "," + str(args.nlayers) + "," + str(args.emsize) + "," + str(
+        args.nhid) + "," + str(args.lr) + "," + str(args.dropout) + "," + str(args.batch_size) + "," + str(val_bpc) + "," + str(test_bpc))
 
 if len(args.onnx_export) > 0:
     # Export the model in ONNX format.
