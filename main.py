@@ -72,7 +72,6 @@ parser.add_argument('--test_tokens', type=int)
 parser.add_argument('--test_characters', type=int)
 parser.add_argument('--train_set_path', type=str)
 parser.add_argument('--bpe_vocab_size', type=str)
-parser.add_argument('--n_gram_order', type=str)
 
 args = parser.parse_args()
 
@@ -316,10 +315,10 @@ print('=' * 89)
 
 if not os.path.exists(args.csv):
     with open(args.csv, 'w') as f:
-        f.write('train set path, bpe_vocab_size, n_gram_order, epochs, nlayers, emsize, nhid, lr, dropout, batch size, val bpc, test bpc\n')
+        f.write('train set path, bpe_vocab_size, norder, epochs, nlayers, emsize, nhid, lr, dropout, batch size, val bpc, test bpc\n')
 
 with open(args.csv, 'a') as f:
-    f.write(args.train_set_path + "," + args.bpe_vocab_size + "," + args.n_gram_order + "," + str(last_epoch) + "," + str(args.nlayers) + "," + str(args.emsize) + "," + str(
+    f.write(args.train_set_path + "," + args.bpe_vocab_size + "," + args.norder + "," + str(last_epoch) + "," + str(args.nlayers) + "," + str(args.emsize) + "," + str(
         args.nhid) + "," + str(args.lr) + "," + str(args.dropout) + "," + str(args.batch_size) + "," + str(val_bpc) + "," + str(test_bpc) + '\n')
 
 if len(args.onnx_export) > 0:
